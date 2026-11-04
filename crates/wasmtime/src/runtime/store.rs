@@ -1526,8 +1526,6 @@ fn set_fuel(
     *injected_fuel = -(injected as i64);
 }
 
-// Deducts `amt` fuel, returning `false` and consuming all remaining fuel if
-// less than `amt` is left.
 #[cfg(any(feature = "component-model", test))]
 fn consume_fuel(
     injected_fuel: &mut i64,
@@ -1539,9 +1537,6 @@ fn consume_fuel(
         set_fuel(injected_fuel, fuel_reserve, yield_interval, 0);
         return false;
     };
-    // Charge only the active, injected, amount of fuel if it covers `amt`,
-    // which leaves the reserve and async yield cadence untouched. Otherwise
-    // redistribute what's left between the active amount and the reserve.
     match i64::try_from(amt)
         .ok()
         .and_then(|a| injected_fuel.checked_add(a))
@@ -1552,8 +1547,6 @@ fn consume_fuel(
     true
 }
 
-/// A borrow of a store's Wasm fuel state, disjoint from [`StoreData`], so host
-/// work can be charged while the rest of the store is borrowed.
 #[cfg(feature = "component-model")]
 pub(crate) struct StoreFuel<'a> {
     injected_fuel: &'a core::cell::UnsafeCell<i64>,
@@ -1563,10 +1556,6 @@ pub(crate) struct StoreFuel<'a> {
 
 #[cfg(feature = "component-model")]
 impl StoreFuel<'_> {
-    /// Deducts `amt` units of fuel from the store.
-    ///
-    /// If less than `amt` fuel remains then all remaining fuel is consumed and
-    /// `Trap::OutOfFuel` is returned.
     pub(crate) fn consume(&mut self, amt: u64) -> Result<()> {
         // SAFETY: wasm is the only other accessor of `fuel_consumed` and cannot
         // run while this borrow of the store is live, as in `StoreOpaque::set_fuel`.
@@ -1637,8 +1626,6 @@ impl StoreOpaque {
         (&mut self.store_data, &self.modules)
     }
 
-    /// Returns `StoreData` alongside a disjoint borrow of this store's Wasm
-    /// fuel state.
     #[cfg(feature = "component-model")]
     pub(crate) fn store_data_mut_and_fuel(&mut self) -> (&mut StoreData, StoreFuel<'_>) {
         (
@@ -2718,7 +2705,6 @@ mod tests {
         tank.set_fuel(25);
         assert!(tank.consume_fuel(4));
         assert_eq!(tank.get_fuel(), 21);
-        // The reserve is untouched when the active amount covers the charge.
         assert_eq!(tank.consumed_fuel, -6);
         assert_eq!(tank.reserve_fuel, 15);
 
@@ -2738,7 +2724,6 @@ mod tests {
         assert_eq!(tank.consumed_fuel, -10);
         assert_eq!(tank.reserve_fuel, 3);
 
-        // No yield interval, more than `i64::MAX` fuel.
         let mut tank = FuelTank::new();
         tank.set_fuel(u64::MAX);
         assert!(tank.consume_fuel(u64::MAX - 1));
@@ -2754,7 +2739,6 @@ mod tests {
         assert_eq!(tank.get_fuel(), 0);
         assert!(!tank.refuel());
 
-        // Wasm already overran its active fuel, leaving the counter positive.
         let mut tank = FuelTank::new();
         tank.set_fuel(5);
         tank.consumed_fuel = 2;

@@ -76,8 +76,6 @@ pub struct ComponentStoreData {
     /// effectively.
     hostcall_fuel: usize,
 
-    /// Whether hostcall fuel consumed while lifting is also deducted from the
-    /// store's Wasm fuel.
     hostcall_fuel_consumes_store_fuel: bool,
 }
 
@@ -438,8 +436,6 @@ impl StoreOpaque {
         parts
     }
 
-    /// Like `lift_context_parts`, but also returns a borrow of the store's Wasm
-    /// fuel state.
     pub(crate) fn lift_context_parts_and_fuel(
         &mut self,
         instance: Instance,
@@ -616,34 +612,16 @@ impl<T> Store<T> {
     /// guest to the host is limited.
     ///
     /// The default value for this is 128 MiB.
-    ///
-    /// To also charge this against Wasm fuel, see
-    /// [`Store::set_hostcall_fuel_consumes_store_fuel`].
     pub fn set_hostcall_fuel(&mut self, fuel: usize) {
         self.as_context_mut().set_hostcall_fuel(fuel)
     }
 
-    /// Returns whether lifting also consumes Wasm fuel; see
-    /// [`Store::set_hostcall_fuel_consumes_store_fuel`].
+    /// Returns whether lifting also consumes Wasm fuel.
     pub fn hostcall_fuel_consumes_store_fuel(&self) -> bool {
         self.as_context().0.hostcall_fuel_consumes_store_fuel()
     }
 
-    /// Configures whether hostcall fuel consumed while lifting values from the
-    /// guest is also deducted from this store's Wasm fuel.
-    ///
-    /// By default the two budgets are independent: copying a large string out
-    /// of the guest consumes [hostcall fuel](Store::set_hostcall_fuel) but no
-    /// Wasm fuel. When enabled, each unit of hostcall fuel consumed while
-    /// lifting (typically one per byte) also consumes one unit of Wasm fuel.
-    ///
-    /// Fuel is deducted before the data is copied. If too little Wasm fuel
-    /// remains, all of it is consumed and the operation fails with
-    /// [`Trap::OutOfFuel`](crate::Trap::OutOfFuel). Lowering is not charged.
-    ///
-    /// This has no effect unless
-    /// [`Config::consume_fuel`](crate::Config::consume_fuel) is enabled. The
-    /// default is `false`.
+    /// Makes lifting also consume Wasm fuel; off by default.
     pub fn set_hostcall_fuel_consumes_store_fuel(&mut self, enable: bool) {
         self.as_context_mut()
             .set_hostcall_fuel_consumes_store_fuel(enable)

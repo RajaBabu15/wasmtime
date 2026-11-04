@@ -364,9 +364,6 @@ pub struct LiftContext<'a> {
     /// data the host allocates on behalf of the guest.
     hostcall_fuel: usize,
 
-    /// The store's Wasm fuel, set only when
-    /// `Store::set_hostcall_fuel_consumes_store_fuel` and engine fuel are both
-    /// enabled.
     store_fuel: Option<StoreFuel<'a>>,
 }
 
@@ -541,9 +538,7 @@ impl<'a> LiftContext<'a> {
     ///
     /// Returns an error if the fuel is exhausted which will cause a trap in the
     /// guest. Note that this is distinct from Wasm's fuel, this is just for
-    /// keeping track of data flowing from the guest to the host. With
-    /// `Store::set_hostcall_fuel_consumes_store_fuel` the same amount is also
-    /// deducted from Wasm fuel, trapping with `Trap::OutOfFuel` when it runs out.
+    /// keeping track of data flowing from the guest to the host.
     pub fn consume_fuel(&mut self, amt: usize) -> Result<()> {
         match self.hostcall_fuel.checked_sub(amt) {
             Some(new) => self.hostcall_fuel = new,

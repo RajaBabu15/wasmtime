@@ -1233,12 +1233,8 @@ fn hostcall_fuel_limits_val() -> Result<()> {
     Ok(())
 }
 
-/// Number of bytes the guest in `hostcall_store_fuel_setup` passes to the host.
 const HOSTCALL_STORE_FUEL_BYTES: u64 = 10_000;
 
-/// Creates a store and `run` export where `run` passes a
-/// `HOSTCALL_STORE_FUEL_BYTES`-long `list<u8>` to the host import `hi`. The
-/// store's data counts the number of times `hi` was invoked.
 fn hostcall_store_fuel_setup(consume_fuel: bool) -> Result<(Store<u32>, TypedFunc<(), ()>)> {
     let mut config = Config::new();
     config.wasm_component_model(true);
@@ -1289,7 +1285,6 @@ fn hostcall_store_fuel_setup(consume_fuel: bool) -> Result<(Store<u32>, TypedFun
     Ok((store, run))
 }
 
-/// Returns how much store fuel one call to `run` consumes.
 fn hostcall_store_fuel_delta(consumes_store_fuel: bool) -> Result<u64> {
     let (mut store, run) = hostcall_store_fuel_setup(true)?;
     store.set_hostcall_fuel_consumes_store_fuel(consumes_store_fuel);
@@ -1308,7 +1303,6 @@ fn hostcall_fuel_does_not_consume_store_fuel_by_default() -> Result<()> {
     let (store, _) = hostcall_store_fuel_setup(true)?;
     assert!(!store.hostcall_fuel_consumes_store_fuel());
 
-    // Only the guest's own instructions are charged, not the lifted bytes.
     let delta = hostcall_store_fuel_delta(false)?;
     assert!(delta < HOSTCALL_STORE_FUEL_BYTES, "consumed {delta}");
     Ok(())
@@ -1328,8 +1322,6 @@ fn hostcall_fuel_consumes_store_fuel_out_of_fuel() -> Result<()> {
     let (mut store, run) = hostcall_store_fuel_setup(true)?;
     store.set_hostcall_fuel_consumes_store_fuel(true);
 
-    // Enough fuel for the guest to reach the host call, but not enough to
-    // lift its argument.
     store.set_fuel(1_000)?;
     let err = run.call(&mut store, ()).unwrap_err();
     assert_eq!(
